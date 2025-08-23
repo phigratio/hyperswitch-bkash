@@ -68,6 +68,7 @@ pub enum RoutableConnectors {
     Bankofamerica,
     Barclaycard,
     Billwerk,
+    Billwerkmuqtadir,
     Bitpay,
     Bambora,
     Bamboraapac,
@@ -237,6 +238,7 @@ pub enum Connector {
     Bankofamerica,
     Barclaycard,
     Billwerk,
+    Billwerkmuqtadir,
     Bitpay,
     Bluesnap,
     Bluecode,
@@ -433,6 +435,7 @@ impl Connector {
             | Self::Bamboraapac
             | Self::Bankofamerica
             | Self::Barclaycard
+            | Self::Billwerkmuqtadir
             | Self::Billwerk
             | Self::Bitpay
             | Self::Bluesnap
@@ -604,6 +607,7 @@ impl From<RoutableConnectors> for Connector {
             RoutableConnectors::Bankofamerica => Self::Bankofamerica,
             RoutableConnectors::Barclaycard => Self::Barclaycard,
             RoutableConnectors::Billwerk => Self::Billwerk,
+            RoutableConnectors::Billwerkmuqtadir => Self::Billwerkmuqtadir,
             RoutableConnectors::Bitpay => Self::Bitpay,
             RoutableConnectors::Bambora => Self::Bambora,
             RoutableConnectors::Bamboraapac => Self::Bamboraapac,
@@ -734,6 +738,7 @@ impl TryFrom<Connector> for RoutableConnectors {
             Connector::Bankofamerica => Ok(Self::Bankofamerica),
             Connector::Barclaycard => Ok(Self::Barclaycard),
             Connector::Billwerk => Ok(Self::Billwerk),
+            Connector::Billwerkmuqtadir => Ok(Self::Billwerkmuqtadir),
             Connector::Bitpay => Ok(Self::Bitpay),
             Connector::Bambora => Ok(Self::Bambora),
             Connector::Bamboraapac => Ok(Self::Bamboraapac),

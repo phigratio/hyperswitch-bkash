@@ -1,20 +1,17 @@
 use common_enums::enums;
-use serde::{Deserialize, Serialize};
-use masking::Secret;
-use common_utils::types::StringMinorUnit;
+use common_utils::{request::Method, types::StringMinorUnit};
 use hyperswitch_domain_models::{
     router_data::{AccessToken, ConnectorAuthType, RouterData},
     router_flow_types::refunds::{Execute, RSync},
-    router_request_types::ResponseId,
-    router_response_types::{PaymentsResponseData, RefundsResponseData, RedirectForm},
-    types::{PaymentsAuthorizeRouterData, RefundsRouterData},
+    router_request_types::{RefundsData, ResponseId},
+    router_response_types::{PaymentsResponseData, RedirectForm, RefundsResponseData},
+    types::{PaymentsAuthorizeRouterData, PaymentsCaptureRouterData, RefundsRouterData},
 };
 use hyperswitch_interfaces::errors::{self, ConnectorError};
-use crate::utils::PaymentsAuthorizeRequestData;
-use common_utils::request::Method;
-use crate::types::ResponseRouterData;
-use hyperswitch_domain_models::router_request_types::RefundsData;
-use hyperswitch_domain_models::types::PaymentsCaptureRouterData;
+use masking::Secret;
+use serde::{Deserialize, Serialize};
+
+use crate::{types::ResponseRouterData, utils::PaymentsAuthorizeRequestData};
 
 // Router Data
 pub struct BkashRouterData<T> {
@@ -198,8 +195,18 @@ impl<F> TryFrom<&BkashRouterData<&RefundsRouterData<F>>> for BkashRefundRequest 
         Ok(Self {
             payment_id: item.router_data.request.connector_transaction_id.clone(),
             amount: item.amount.clone(),
-            sku: item.router_data.request.reason.clone().unwrap_or("Refund".to_string()),
-            reason: item.router_data.request.reason.clone().unwrap_or("Refund".to_string()),
+            sku: item
+                .router_data
+                .request
+                .reason
+                .clone()
+                .unwrap_or("Refund".to_string()),
+            reason: item
+                .router_data
+                .request
+                .reason
+                .clone()
+                .unwrap_or("Refund".to_string()),
         })
     }
 }
@@ -229,9 +236,13 @@ pub struct RefundResponse {
     pub trx_id: String,
     pub transaction_status: RefundStatus,
 }
-impl TryFrom<ResponseRouterData<Execute, RefundResponse, RefundsData, RefundsResponseData>> for RefundsRouterData<Execute> {
+impl TryFrom<ResponseRouterData<Execute, RefundResponse, RefundsData, RefundsResponseData>>
+    for RefundsRouterData<Execute>
+{
     type Error = error_stack::Report<errors::ConnectorError>;
-    fn try_from(item: ResponseRouterData<Execute, RefundResponse, RefundsData, RefundsResponseData>) -> Result<Self, Self::Error> {
+    fn try_from(
+        item: ResponseRouterData<Execute, RefundResponse, RefundsData, RefundsResponseData>,
+    ) -> Result<Self, Self::Error> {
         Ok(Self {
             response: Ok(RefundsResponseData {
                 connector_refund_id: item.response.trx_id.to_string(),
@@ -259,9 +270,13 @@ impl TryFrom<&BkashRouterData<&PaymentsCaptureRouterData>> for BkashCaptureReque
     }
 }
 
-impl TryFrom<ResponseRouterData<RSync, RefundResponse, RefundsData, RefundsResponseData>> for RefundsRouterData<RSync> {
+impl TryFrom<ResponseRouterData<RSync, RefundResponse, RefundsData, RefundsResponseData>>
+    for RefundsRouterData<RSync>
+{
     type Error = error_stack::Report<errors::ConnectorError>;
-    fn try_from(item: ResponseRouterData<RSync, RefundResponse, RefundsData, RefundsResponseData>) -> Result<Self, Self::Error> {
+    fn try_from(
+        item: ResponseRouterData<RSync, RefundResponse, RefundsData, RefundsResponseData>,
+    ) -> Result<Self, Self::Error> {
         Ok(Self {
             response: Ok(RefundsResponseData {
                 connector_refund_id: item.response.trx_id.to_string(),

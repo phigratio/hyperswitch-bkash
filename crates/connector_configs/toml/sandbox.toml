@@ -6692,3 +6692,7 @@ api_key = "API Key"
 [bkash]
 [bkash.connector_auth.HeaderKey]
 api_key = "API Key"
+
+[billwerkmuqtadir]
+[billwerkmuqtadir.connector_auth.HeaderKey]
+api_key = "API Key"
