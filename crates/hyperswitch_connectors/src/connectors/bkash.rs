@@ -1,19 +1,18 @@
-
 pub mod transformers;
 
-use error_stack::{report, ResultExt};
-use masking::{ExposeInterface, Mask};
+use std::{collections::HashMap, sync::LazyLock};
+
+use common_enums::{enums, ConnectorIntegrationStatus};
 use common_utils::{
     errors::CustomResult,
     ext_traits::BytesExt,
     request::{Method, Request, RequestBuilder, RequestContent},
-    types::{AmountConvertor, StringMinorUnit, StringMinorUnitForConnector, MinorUnit},
+    types::{AmountConvertor, MinorUnit, StringMinorUnit, StringMinorUnitForConnector},
 };
-use std::collections::HashMap;
-use hyperswitch_domain_models::router_response_types::ConnectorInfo;
-use hyperswitch_domain_models::router_response_types::SupportedPaymentMethods;
+use error_stack::{report, ResultExt};
 use hyperswitch_domain_models::{
     connector_endpoints::Connectors,
+    payment_method_data::PaymentMethodData,
     router_data::{AccessToken, ConnectorAuthType, ErrorResponse, RouterData},
     router_flow_types::{
         access_token_auth::AccessTokenAuth,
@@ -25,7 +24,9 @@ use hyperswitch_domain_models::{
         PaymentsCancelData, PaymentsCaptureData, PaymentsSessionData, PaymentsSyncData,
         RefundsData, SetupMandateRequestData,
     },
-    router_response_types::{PaymentsResponseData, RefundsResponseData},
+    router_response_types::{
+        ConnectorInfo, PaymentsResponseData, RefundsResponseData, SupportedPaymentMethods,
+    },
     types::{
         PaymentsAuthorizeRouterData, PaymentsCaptureRouterData, PaymentsSyncRouterData,
         RefundSyncRouterData, RefundsRouterData,
@@ -33,25 +34,18 @@ use hyperswitch_domain_models::{
 };
 use hyperswitch_interfaces::{
     api::{
-        self, ConnectorCommon, ConnectorCommonExt, ConnectorIntegration, ConnectorValidation,
-        ConnectorSpecifications,
+        self, ConnectorCommon, ConnectorCommonExt, ConnectorIntegration, ConnectorSpecifications,
+        ConnectorValidation,
     },
     errors,
     events::connector_api_logs::ConnectorEvent,
     types::{self, Response},
     webhooks,
 };
-use std::sync::LazyLock;
-use common_enums::enums;
-use hyperswitch_domain_models::payment_method_data::PaymentMethodData;
-use common_enums::ConnectorIntegrationStatus;
-use crate::{
-    constants::headers,
-    types::ResponseRouterData,
-    utils,
-};
-
+use masking::{ExposeInterface, Mask};
 use transformers as bkash;
+
+use crate::{constants::headers, types::ResponseRouterData, utils};
 
 #[derive(Clone)]
 pub struct Bkash {
@@ -89,32 +83,35 @@ impl<Flow, Request, Response> ConnectorCommonExt<Flow, Request, Response> for Bk
 where
     Self: ConnectorIntegration<Flow, Request, Response>,
 {
-   fn build_headers(
-    &self,
-    req: &RouterData<Flow, Request, Response>,
-    _connectors: &Connectors,
-) -> CustomResult<Vec<(String, masking::Maskable<String>)>, errors::ConnectorError> {
-    let auth: bkash::BkashAuthType = <&ConnectorAuthType as TryInto<bkash::BkashAuthType>>::try_into(&req.connector_auth_type)
-        .change_context(errors::ConnectorError::FailedToObtainAuthType)?;
-    let token = req
-        .access_token
-        .clone()
-        .ok_or(errors::ConnectorError::FailedToObtainAuthType)?;
-    Ok(vec![
-        (
-            headers::CONTENT_TYPE.to_string(),
-            self.get_content_type().to_string().into(),
-        ),
-        (
-            headers::AUTHORIZATION.to_string(),
-            token.token.expose().into_masked(),
-        ),
-        (
-            "X-App-Key".to_string(),
-            auth.app_key.clone().expose().into_masked(), // Clone here
-        ),
-    ])
-}
+    fn build_headers(
+        &self,
+        req: &RouterData<Flow, Request, Response>,
+        _connectors: &Connectors,
+    ) -> CustomResult<Vec<(String, masking::Maskable<String>)>, errors::ConnectorError> {
+        let auth: bkash::BkashAuthType =
+            <&ConnectorAuthType as TryInto<bkash::BkashAuthType>>::try_into(
+                &req.connector_auth_type,
+            )
+            .change_context(errors::ConnectorError::FailedToObtainAuthType)?;
+        let token = req
+            .access_token
+            .clone()
+            .ok_or(errors::ConnectorError::FailedToObtainAuthType)?;
+        Ok(vec![
+            (
+                headers::CONTENT_TYPE.to_string(),
+                self.get_content_type().to_string().into(),
+            ),
+            (
+                headers::AUTHORIZATION.to_string(),
+                token.token.expose().into_masked(),
+            ),
+            (
+                "X-App-Key".to_string(),
+                auth.app_key.clone().expose().into_masked(), // Clone here
+            ),
+        ])
+    }
 }
 
 impl ConnectorCommon for Bkash {
@@ -134,33 +131,34 @@ impl ConnectorCommon for Bkash {
         connectors.bkash.base_url.as_ref()
     }
 
-   fn get_auth_header(
-    &self,
-    auth_type: &ConnectorAuthType,
-) -> CustomResult<Vec<(String, masking::Maskable<String>)>, errors::ConnectorError> {
-    let auth: bkash::BkashAuthType = <&ConnectorAuthType as TryInto<bkash::BkashAuthType>>::try_into(auth_type)
-        .change_context(errors::ConnectorError::FailedToObtainAuthType)?;
-    Ok(vec![
-        (
-            headers::AUTHORIZATION.to_string(),
-            auth.app_key.clone().expose().into_masked(), // Clone here
-        ),
-        (
-            "X-App-Key".to_string(),
-            auth.app_key.clone().expose().into_masked(), // Clone here
-        ),
-    ])
-}
+    fn get_auth_header(
+        &self,
+        auth_type: &ConnectorAuthType,
+    ) -> CustomResult<Vec<(String, masking::Maskable<String>)>, errors::ConnectorError> {
+        let auth: bkash::BkashAuthType =
+            <&ConnectorAuthType as TryInto<bkash::BkashAuthType>>::try_into(auth_type)
+                .change_context(errors::ConnectorError::FailedToObtainAuthType)?;
+        Ok(vec![
+            (
+                headers::AUTHORIZATION.to_string(),
+                auth.app_key.clone().expose().into_masked(), // Clone here
+            ),
+            (
+                "X-App-Key".to_string(),
+                auth.app_key.clone().expose().into_masked(), // Clone here
+            ),
+        ])
+    }
 
     fn build_error_response(
         &self,
         res: Response,
         event_builder: Option<&mut ConnectorEvent>,
     ) -> CustomResult<ErrorResponse, errors::ConnectorError> {
-        let response: bkash::BkashErrorResponse = res
-            .response
-            .parse_struct("BkashErrorResponse")
-            .change_context(errors::ConnectorError::ResponseDeserializationFailed)?;
+        let response: bkash::BkashErrorResponse =
+            res.response
+                .parse_struct("BkashErrorResponse")
+                .change_context(errors::ConnectorError::ResponseDeserializationFailed)?;
 
         event_builder.map(|i| i.set_response_body(&response));
         router_env::logger::info!(connector_response=?response);
@@ -224,7 +222,10 @@ impl ConnectorIntegration<AccessTokenAuth, AccessTokenRequestData, AccessToken> 
         req: &RouterData<AccessTokenAuth, AccessTokenRequestData, AccessToken>,
         _connectors: &Connectors,
     ) -> CustomResult<Vec<(String, masking::Maskable<String>)>, errors::ConnectorError> {
-        let auth: bkash::BkashAuthType = <&ConnectorAuthType as TryInto<bkash::BkashAuthType>>::try_into(&req.connector_auth_type)
+        let auth: bkash::BkashAuthType =
+            <&ConnectorAuthType as TryInto<bkash::BkashAuthType>>::try_into(
+                &req.connector_auth_type,
+            )
             .change_context(errors::ConnectorError::FailedToObtainAuthType)?;
         Ok(vec![
             ("Content-Type".to_string(), "application/json".into()),
@@ -238,7 +239,10 @@ impl ConnectorIntegration<AccessTokenAuth, AccessTokenRequestData, AccessToken> 
         req: &RouterData<AccessTokenAuth, AccessTokenRequestData, AccessToken>,
         _connectors: &Connectors,
     ) -> CustomResult<RequestContent, errors::ConnectorError> {
-        let auth: bkash::BkashAuthType = <&ConnectorAuthType as TryInto<bkash::BkashAuthType>>::try_into(&req.connector_auth_type)
+        let auth: bkash::BkashAuthType =
+            <&ConnectorAuthType as TryInto<bkash::BkashAuthType>>::try_into(
+                &req.connector_auth_type,
+            )
             .change_context(errors::ConnectorError::FailedToObtainAuthType)?;
         let connector_req = bkash::BkashAccessTokenRequest {
             app_key: auth.app_key,
@@ -267,7 +271,10 @@ impl ConnectorIntegration<AccessTokenAuth, AccessTokenRequestData, AccessToken> 
         data: &RouterData<AccessTokenAuth, AccessTokenRequestData, AccessToken>,
         event_builder: Option<&mut ConnectorEvent>,
         res: Response,
-    ) -> CustomResult<RouterData<AccessTokenAuth, AccessTokenRequestData, AccessToken>, errors::ConnectorError> {
+    ) -> CustomResult<
+        RouterData<AccessTokenAuth, AccessTokenRequestData, AccessToken>,
+        errors::ConnectorError,
+    > {
         let response: bkash::BkashAccessTokenResponse = res
             .response
             .parse_struct("BkashAccessTokenResponse")
@@ -321,10 +328,10 @@ impl ConnectorIntegration<Authorize, PaymentsAuthorizeData, PaymentsResponseData
         _connectors: &Connectors,
     ) -> CustomResult<RequestContent, errors::ConnectorError> {
         let amount = utils::convert_amount(
-    self.amount_converter,
-    MinorUnit::new(req.request.amount), // Use MinorUnit::new
-    req.request.currency,
-)?;
+            self.amount_converter,
+            MinorUnit::new(req.request.amount), // Use MinorUnit::new
+            req.request.currency,
+        )?;
 
         let connector_router_data = bkash::BkashRouterData::from((amount, req));
         let connector_req = bkash::BkashPaymentsRequest::try_from(&connector_router_data)?;
@@ -339,10 +346,16 @@ impl ConnectorIntegration<Authorize, PaymentsAuthorizeData, PaymentsResponseData
         Ok(Some(
             RequestBuilder::new()
                 .method(Method::Post)
-                .url(&types::PaymentsAuthorizeType::get_url(self, req, connectors)?)
+                .url(&types::PaymentsAuthorizeType::get_url(
+                    self, req, connectors,
+                )?)
                 .attach_default_headers()
-                .headers(types::PaymentsAuthorizeType::get_headers(self, req, connectors)?)
-                .set_body(types::PaymentsAuthorizeType::get_request_body(self, req, connectors)?)
+                .headers(types::PaymentsAuthorizeType::get_headers(
+                    self, req, connectors,
+                )?)
+                .set_body(types::PaymentsAuthorizeType::get_request_body(
+                    self, req, connectors,
+                )?)
                 .build(),
         ))
     }
@@ -421,7 +434,9 @@ impl ConnectorIntegration<PSync, PaymentsSyncData, PaymentsResponseData> for Bka
                 .url(&types::PaymentsSyncType::get_url(self, req, connectors)?)
                 .attach_default_headers()
                 .headers(types::PaymentsSyncType::get_headers(self, req, connectors)?)
-                .set_body(types::PaymentsSyncType::get_request_body(self, req, connectors)?)
+                .set_body(types::PaymentsSyncType::get_request_body(
+                    self, req, connectors,
+                )?)
                 .build(),
         ))
     }
@@ -480,11 +495,11 @@ impl ConnectorIntegration<Capture, PaymentsCaptureData, PaymentsResponseData> fo
         req: &PaymentsCaptureRouterData,
         _connectors: &Connectors,
     ) -> CustomResult<RequestContent, errors::ConnectorError> {
-       let amount = utils::convert_amount(
-    self.amount_converter,
-    MinorUnit::new(req.request.amount_to_capture), // Use MinorUnit::new
-    req.request.currency,
-)?;
+        let amount = utils::convert_amount(
+            self.amount_converter,
+            MinorUnit::new(req.request.amount_to_capture), // Use MinorUnit::new
+            req.request.currency,
+        )?;
         let connector_router_data = bkash::BkashRouterData::from((amount, req));
         let connector_req = bkash::BkashCaptureRequest::try_from(&connector_router_data)?;
         Ok(RequestContent::Json(Box::new(connector_req)))
@@ -500,8 +515,12 @@ impl ConnectorIntegration<Capture, PaymentsCaptureData, PaymentsResponseData> fo
                 .method(Method::Post)
                 .url(&types::PaymentsCaptureType::get_url(self, req, connectors)?)
                 .attach_default_headers()
-                .headers(types::PaymentsCaptureType::get_headers(self, req, connectors)?)
-                .set_body(types::PaymentsCaptureType::get_request_body(self, req, connectors)?)
+                .headers(types::PaymentsCaptureType::get_headers(
+                    self, req, connectors,
+                )?)
+                .set_body(types::PaymentsCaptureType::get_request_body(
+                    self, req, connectors,
+                )?)
                 .build(),
         ))
     }
@@ -583,8 +602,12 @@ impl ConnectorIntegration<Execute, RefundsData, RefundsResponseData> for Bkash {
             .method(Method::Post)
             .url(&types::RefundExecuteType::get_url(self, req, connectors)?)
             .attach_default_headers()
-            .headers(types::RefundExecuteType::get_headers(self, req, connectors)?)
-            .set_body(types::RefundExecuteType::get_request_body(self, req, connectors)?)
+            .headers(types::RefundExecuteType::get_headers(
+                self, req, connectors,
+            )?)
+            .set_body(types::RefundExecuteType::get_request_body(
+                self, req, connectors,
+            )?)
             .build();
         Ok(Some(request))
     }
@@ -635,7 +658,10 @@ impl ConnectorIntegration<RSync, RefundsData, RefundsResponseData> for Bkash {
         _req: &RefundSyncRouterData,
         connectors: &Connectors,
     ) -> CustomResult<String, errors::ConnectorError> {
-        Ok(format!("{}payment/refund/status", self.base_url(connectors)))
+        Ok(format!(
+            "{}payment/refund/status",
+            self.base_url(connectors)
+        ))
     }
 
     fn get_request_body(
@@ -663,7 +689,9 @@ impl ConnectorIntegration<RSync, RefundsData, RefundsResponseData> for Bkash {
                 .url(&types::RefundSyncType::get_url(self, req, connectors)?)
                 .attach_default_headers()
                 .headers(types::RefundSyncType::get_headers(self, req, connectors)?)
-                .set_body(types::RefundSyncType::get_request_body(self, req, connectors)?)
+                .set_body(types::RefundSyncType::get_request_body(
+                    self, req, connectors,
+                )?)
                 .build(),
         ))
     }
@@ -744,4 +772,3 @@ impl ConnectorSpecifications for Bkash {
         Some(&BKASH_SUPPORTED_WEBHOOK_FLOWS)
     }
 }
-

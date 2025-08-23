@@ -1295,6 +1295,7 @@ fn get_cards_required_fields() -> HashMap<Connector, RequiredFieldFinal> {
             ),
         ),
         (Connector::Billwerk, fields(vec![], vec![], card_basic())),
+        (Connector::Billwerkmuqtadir, fields(vec![], vec![], card_basic())),
         (
             Connector::Bluesnap,
             fields(

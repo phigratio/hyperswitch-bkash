@@ -1,51 +1,20 @@
+use hyperswitch_domain_models::payment_method_data::{Card, PaymentMethodData};
 use masking::Secret;
-use router::types::{self, domain, storage::enums};
+use router::types::{self, api, storage::enums};
 use test_utils::connector_auth;
 
 use crate::utils::{self, ConnectorActions};
 
 #[derive(Clone, Copy)]
-struct BillwerkTest;
-impl ConnectorActions for BillwerkTest {}
-impl utils::Connector for BillwerkTest {
-    fn get_data(&self) -> types::api::ConnectorData {
-        use router::connector::Billwerk;
+struct BillwerkmuqtadirTest;
+impl ConnectorActions for BillwerkmuqtadirTest {}
+impl utils::Connector for BillwerkmuqtadirTest {
+    fn get_data(&self) -> api::ConnectorData {
+        use router::connector::Billwerkmuqtadir;
         utils::construct_connector_data_old(
-            Box::new(Billwerk::new()),
-            // Added as Dummy connector as template code is added for future usage
-            types::Connector::DummyConnector1,
-            types::api::GetToken::Connector,
-            None,
-        )
-    }
-
-    fn get_auth_token(&self) -> types::ConnectorAuthType {
-        utils::to_connector_auth_type(
-            connector_auth::ConnectorAuthentication::new()
-                .billwerk
-                .expect("Missing connector authentication configuration")
-                .into(),
-        )
-    }
-
-    fn get_name(&self) -> String {
-        "billwerk".to_string()
-    }
-}
-
-static CONNECTOR: BillwerkMuqtadirTest = BillwerkMuqtadirTest {};
-
-#[derive(Clone, Copy)]
-struct BillwerkMuqtadirTest;
-impl ConnectorActions for BillwerkMuqtadirTest {}
-impl utils::Connector for BillwerkMuqtadirTest {
-    fn get_data(&self) -> types::api::ConnectorData {
-        use router::connector::BillwerkMuqtadir;
-        utils::construct_connector_data_old(
-            Box::new(BillwerkMuqtadir::new()),
-            // Added as Dummy connector as template code is added for future usage
-            types::Connector::DummyConnector1,
-            types::api::GetToken::Connector,
+            Box::new(Billwerkmuqtadir::new()),
+            types::Connector::Plaid,
+            api::GetToken::Connector,
             None,
         )
     }
@@ -64,7 +33,7 @@ impl utils::Connector for BillwerkMuqtadirTest {
     }
 }
 
-static CONNECTOR: BillwerkMuqtadirTest = BillwerkMuqtadirTest {};
+static CONNECTOR: BillwerkmuqtadirTest = BillwerkmuqtadirTest {};
 
 fn get_default_payment_info() -> Option<utils::PaymentInfo> {
     None
@@ -334,7 +303,7 @@ async fn should_fail_payment_for_incorrect_cvc() {
     let response = CONNECTOR
         .make_payment(
             Some(types::PaymentsAuthorizeData {
-                payment_method_data: domain::PaymentMethodData::Card(domain::Card {
+                payment_method_data: PaymentMethodData::Card(Card {
                     card_cvc: Secret::new("12345".to_string()),
                     ..utils::CCardType::default().0
                 }),
@@ -356,7 +325,7 @@ async fn should_fail_payment_for_invalid_exp_month() {
     let response = CONNECTOR
         .make_payment(
             Some(types::PaymentsAuthorizeData {
-                payment_method_data: domain::PaymentMethodData::Card(domain::Card {
+                payment_method_data: PaymentMethodData::Card(Card {
                     card_exp_month: Secret::new("20".to_string()),
                     ..utils::CCardType::default().0
                 }),
@@ -378,7 +347,7 @@ async fn should_fail_payment_for_incorrect_expiry_year() {
     let response = CONNECTOR
         .make_payment(
             Some(types::PaymentsAuthorizeData {
-                payment_method_data: domain::PaymentMethodData::Card(domain::Card {
+                payment_method_data: PaymentMethodData::Card(Card {
                     card_exp_year: Secret::new("2000".to_string()),
                     ..utils::CCardType::default().0
                 }),

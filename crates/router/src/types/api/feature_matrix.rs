@@ -55,6 +55,9 @@ impl FeatureMatrixConnectorData {
                 enums::Connector::Billwerk => {
                     Ok(ConnectorEnum::Old(Box::new(connector::Billwerk::new())))
                 }
+                enums::Connector::Billwerkmuqtadir => {
+                    Ok(ConnectorEnum::Old(Box::new(connector::Billwerkmuqtadir::new())))
+                }
                 enums::Connector::Bitpay => {
                     Ok(ConnectorEnum::Old(Box::new(connector::Bitpay::new())))
                 }

@@ -109,6 +109,10 @@ impl ConnectorAuthTypeAndMetadataValidation<'_> {
                 billwerk::transformers::BillwerkAuthType::try_from(self.auth_type)?;
                 Ok(())
             }
+             api_enums::Connector::Billwerkmuqtadir => {
+                billwerkmuqtadir::transformers::BillwerkmuqtadirAuthType::try_from(self.auth_type)?;
+                Ok(())
+            }
             api_enums::Connector::Bitpay => {
                 bitpay::transformers::BitpayAuthType::try_from(self.auth_type)?;
                 Ok(())

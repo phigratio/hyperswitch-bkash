@@ -20,6 +20,7 @@ mod bankofamerica;
 mod barclaycard;
 #[cfg(feature = "dummy_connector")]
 mod billwerk;
+mod billwerkmuqtadir;
 mod bitpay;
 mod bkash;
 mod bkash;
