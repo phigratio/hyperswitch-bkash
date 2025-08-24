@@ -66,7 +66,7 @@ pub struct BkashAccessTokenRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BkashAccessTokenResponse {
     pub id_token: Secret<String>,
-    pub expires: i64,
+    pub expires_in: i64, // Changed from 'expires' to 'expires_in'
 }
 
 impl<F, T> TryFrom<ResponseRouterData<F, BkashAccessTokenResponse, T, AccessToken>>
@@ -76,16 +76,21 @@ impl<F, T> TryFrom<ResponseRouterData<F, BkashAccessTokenResponse, T, AccessToke
     fn try_from(
         item: ResponseRouterData<F, BkashAccessTokenResponse, T, AccessToken>,
     ) -> Result<Self, Self::Error> {
+        // The expiry time is calculated from the current time plus the 'expires_in' value.
+        let expires = common_utils::date_time::now()
+            .saturating_add(time::Duration::seconds(item.response.expires_in))
+            .assume_utc()
+            .unix_timestamp();
+
         Ok(Self {
             response: Ok(AccessToken {
                 token: item.response.id_token,
-                expires: item.response.expires,
+                expires, // Use the calculated expiry timestamp
             }),
             ..item.data
         })
     }
 }
-
 // Payments
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

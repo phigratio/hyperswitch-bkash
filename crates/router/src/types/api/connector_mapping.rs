@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use error_stack::{report, ResultExt};
-use hyperswitch_connectors::connectors::{Paytm, Phonepe};
+use hyperswitch_connectors::connectors::{Paytm, Phonepe,Bkash};
 
 use crate::{
     configs::settings::Connectors,
@@ -10,6 +10,8 @@ use crate::{
     services::connector_integration_interface::ConnectorEnum,
     types::{self, api::enums},
 };
+
+
 
 /// Routing algorithm will output merchant connector identifier instead of connector name
 /// In order to support backwards compatibility for older routing algorithms and merchant accounts
@@ -146,6 +148,9 @@ impl ConnectorData {
                 }
                 enums::Connector::Bitpay => {
                     Ok(ConnectorEnum::Old(Box::new(connector::Bitpay::new())))
+                }
+                enums::Connector::Bkash => {
+                    Ok(ConnectorEnum::Old(Box::new(connector::Bkash::new())))
                 }
                 enums::Connector::Bluesnap => {
                     Ok(ConnectorEnum::Old(Box::new(connector::Bluesnap::new())))

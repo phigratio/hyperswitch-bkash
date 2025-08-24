@@ -70,6 +70,7 @@ pub enum RoutableConnectors {
     Billwerk,
     Billwerkmuqtadir,
     Bitpay,
+    Bkash,
     Bambora,
     Bamboraapac,
     Bluesnap,
@@ -231,6 +232,7 @@ pub enum Connector {
     Adyen,
     Airwallex,
     // Amazonpay,
+    Bkash,
     Archipel,
     Authorizedotnet,
     Bambora,
@@ -438,6 +440,7 @@ impl Connector {
             | Self::Billwerkmuqtadir
             | Self::Billwerk
             | Self::Bitpay
+            | Self::Bkash
             | Self::Bluesnap
             | Self::Bluecode
             | Self::Boku
@@ -582,6 +585,7 @@ impl From<RoutableConnectors> for Connector {
     fn from(routable_connector: RoutableConnectors) -> Self {
         match routable_connector {
             RoutableConnectors::Authipay => Self::Authipay,
+            RoutableConnectors::Bkash => Self::Bkash,
             RoutableConnectors::Adyenplatform => Self::Adyenplatform,
             #[cfg(feature = "dummy_connector")]
             RoutableConnectors::DummyBillingConnector => Self::DummyBillingConnector,
@@ -733,6 +737,7 @@ impl TryFrom<Connector> for RoutableConnectors {
             Connector::Aci => Ok(Self::Aci),
             Connector::Adyen => Ok(Self::Adyen),
             Connector::Airwallex => Ok(Self::Airwallex),
+            Connector::Bkash => Ok(Self::Bkash),
             Connector::Archipel => Ok(Self::Archipel),
             Connector::Authorizedotnet => Ok(Self::Authorizedotnet),
             Connector::Bankofamerica => Ok(Self::Bankofamerica),

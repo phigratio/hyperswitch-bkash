@@ -22,6 +22,7 @@ impl ForeignTryFrom<api_enums::Connector> for common_enums::RoutableConnectors {
             api_enums::Connector::Billwerk => Self::Billwerk,
             api_enums::Connector::Billwerkmuqtadir => Self::Billwerkmuqtadir,
             api_enums::Connector::Bitpay => Self::Bitpay,
+            api_enums::Connector::Bkash => Self::Bkash,
             api_enums::Connector::Bluesnap => Self::Bluesnap,
             api_enums::Connector::Bluecode => Self::Bluecode,
             api_enums::Connector::Boku => Self::Boku,
