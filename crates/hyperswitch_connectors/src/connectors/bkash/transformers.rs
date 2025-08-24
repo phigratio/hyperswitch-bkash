@@ -13,6 +13,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{types::ResponseRouterData, utils::PaymentsAuthorizeRequestData};
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BkashMetadata {
+    pub trx_id: String,
+}
 // Router Data
 pub struct BkashRouterData<T> {
     pub amount: StringMinorUnit,

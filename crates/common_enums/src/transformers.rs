@@ -1799,6 +1799,7 @@ impl From<PaymentMethodType> for PaymentMethod {
             PaymentMethodType::Affirm => Self::PayLater,
             PaymentMethodType::AfterpayClearpay => Self::PayLater,
             PaymentMethodType::AliPay => Self::Wallet,
+            PaymentMethodType::Bkash => Self::Wallet,
             PaymentMethodType::AliPayHk => Self::Wallet,
             PaymentMethodType::Alma => Self::PayLater,
             PaymentMethodType::AmazonPay => Self::Wallet,

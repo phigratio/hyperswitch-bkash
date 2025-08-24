@@ -1955,6 +1955,7 @@ pub enum PaymentMethodType {
     ApplePay,
     Atome,
     Bacs,
+    Bkash,
     BancontactCard,
     Becs,
     Benefit,
@@ -2068,6 +2069,7 @@ impl PaymentMethodType {
         let display_name = match self {
             Self::Ach => "ACH Direct Debit",
             Self::Bacs => "BACS Direct Debit",
+            Self::Bkash => "Bkash Wallet",
             Self::Affirm => "Affirm",
             Self::AfterpayClearpay => "Afterpay Clearpay",
             Self::Alfamart => "Alfamart",
@@ -4139,6 +4141,8 @@ pub enum HungaryStatesAbbreviation {
     Budapest,
     #[strum(serialize = "BK")]
     BacsKiskunCounty,
+    #[strum(serialize = "BD")]
+    Bkash,
     #[strum(serialize = "BE")]
     BekesCounty,
     #[strum(serialize = "BC")]

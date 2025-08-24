@@ -113,6 +113,10 @@ impl ConnectorAuthTypeAndMetadataValidation<'_> {
                 billwerkmuqtadir::transformers::BillwerkmuqtadirAuthType::try_from(self.auth_type)?;
                 Ok(())
             }
+             api_enums::Connector::Bkash => {
+                bkash::transformers::BkashAuthType::try_from(self.auth_type)?;
+                Ok(())
+            }
             api_enums::Connector::Bitpay => {
                 bitpay::transformers::BitpayAuthType::try_from(self.auth_type)?;
                 Ok(())
