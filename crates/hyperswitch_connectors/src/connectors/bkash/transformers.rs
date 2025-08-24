@@ -70,7 +70,9 @@ pub struct BkashAccessTokenRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BkashAccessTokenResponse {
     pub id_token: Secret<String>,
-    pub expires: i64,
+    pub expires_in: i64,
+    pub refresh_token: Secret<String>,
+    pub token_type: String,
 }
 
 impl<F, T> TryFrom<ResponseRouterData<F, BkashAccessTokenResponse, T, AccessToken>>
@@ -83,12 +85,166 @@ impl<F, T> TryFrom<ResponseRouterData<F, BkashAccessTokenResponse, T, AccessToke
         Ok(Self {
             response: Ok(AccessToken {
                 token: item.response.id_token,
-                expires: item.response.expires,
+                expires: item.response.expires_in,
             }),
             ..item.data
         })
     }
 }
+
+// Agreement Creation
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BkashAgreementRequest {
+    pub mode: String,
+    pub payer_reference: String,
+    pub callback_url: String,
+}
+
+impl TryFrom<&RouterData<CreateAgreement, AgreementRequestData, PaymentsResponseData>>
+    for BkashAgreementRequest
+{
+    type Error = error_stack::Report<errors::ConnectorError>;
+    fn try_from(
+        item: &RouterData<CreateAgreement, AgreementRequestData, PaymentsResponseData>,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            mode: "0000".to_string(),
+            payer_reference: item.request.payer_reference.clone().ok_or(
+                errors::ConnectorError::MissingRequiredField {
+                    field_name: "payer_reference",
+                },
+            )?,
+            callback_url: item.request.get_router_return_url()?,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BkashAgreementResponse {
+    pub payment_id: String,
+    pub bkash_url: String,
+    pub callback_url: String,
+    pub success_callback_url: String,
+    pub failure_callback_url: String,
+    pub cancelled_callback_url: String,
+    pub payer_reference: String,
+    pub agreement_status: String,
+    pub agreement_create_time: String,
+    pub status_code: String,
+    pub status_message: String,
+}
+
+impl<F> TryFrom<ResponseRouterData<F, BkashAgreementResponse, AgreementRequestData, PaymentsResponseData>>
+    for RouterData<F, AgreementRequestData, PaymentsResponseData>
+{
+    type Error = error_stack::Report<errors::ConnectorError>;
+    fn try_from(
+        item: ResponseRouterData<F, BkashAgreementResponse, AgreementRequestData, PaymentsResponseData>,
+    ) -> Result<Self, Self::Error> {
+        let redirection_data = Some(RedirectForm::Form {
+            endpoint: item.response.bkash_url.clone(),
+            method: Method::Get,
+            form_fields: std::collections::HashMap::new(),
+        });
+
+        Ok(Self {
+            status: match item.response.agreement_status.as_str() {
+                "Initiated" => common_enums::AttemptStatus::AuthenticationPending,
+                "Completed" => common_enums::AttemptStatus::Charged,
+                "Failed" => common_enums::AttemptStatus::Failure,
+                "Cancelled" => common_enums::AttemptStatus::Voided,
+                _ => common_enums::AttemptStatus::Pending,
+            },
+            response: Ok(PaymentsResponseData::TransactionResponse {
+                resource_id: ResponseId::ConnectorTransactionId(item.response.payment_id.clone()),
+                redirection_data: Box::new(redirection_data),
+                mandate_reference: Box::new(None),
+                connector_metadata: None,
+                network_txn_id: None,
+                connector_response_reference_id: Some(item.response.payment_id),
+                incremental_authorization_allowed: None,
+                charges: None,
+            }),
+            ..item.data
+        })
+    }
+}
+
+
+// Execute Agreement
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BkashExecuteAgreementRequest {
+    pub payment_id: String,
+}
+
+impl TryFrom<&RouterData<ExecuteAgreement, AgreementRequestData, PaymentsResponseData>>
+    for BkashExecuteAgreementRequest
+{
+    type Error = error_stack::Report<errors::ConnectorError>;
+    fn try_from(
+        item: &RouterData<ExecuteAgreement, AgreementRequestData, PaymentsResponseData>,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            payment_id: item
+                .request
+                .payment_id
+                .clone()
+                .ok_or(errors::ConnectorError::MissingRequiredField {
+                    field_name: "payment_id",
+                })?,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BkashExecuteAgreementResponse {
+    pub payment_id: String,
+    pub agreement_id: String,
+    pub customer_msisdn: String,
+    pub payer_reference: String,
+    pub agreement_execute_time: String,
+    pub agreement_status: String,
+    pub status_code: String,
+    pub status_message: String,
+}
+
+impl<F> TryFrom<ResponseRouterData<F, BkashExecuteAgreementResponse, AgreementRequestData, PaymentsResponseData>>
+    for RouterData<F, AgreementRequestData, PaymentsResponseData>
+{
+    type Error = error_stack::Report<errors::ConnectorError>;
+    fn try_from(
+        item: ResponseRouterData<F, BkashExecuteAgreementResponse, AgreementRequestData, PaymentsResponseData>,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            status: match item.response.agreement_status.as_str() {
+                "Completed" => common_enums::AttemptStatus::Charged,
+                "Failed" => common_enums::AttemptStatus::Failure,
+                "Cancelled" => common_enums::AttemptStatus::Voided,
+                _ => common_enums::AttemptStatus::Pending,
+            },
+            response: Ok(PaymentsResponseData::TransactionResponse {
+                resource_id: ResponseId::ConnectorTransactionId(item.response.payment_id.clone()),
+                redirection_data: Box::new(None),
+                mandate_reference: Box::new(Some(api_models::payments::MandateReference {
+                    connector_mandate_id: Some(item.response.agreement_id.clone()),
+                    payment_method_id: None,
+                })),
+                connector_metadata: None,
+                network_txn_id: None,
+                connector_response_reference_id: Some(item.response.payment_id),
+                incremental_authorization_allowed: None,
+                charges: None,
+            }),
+            ..item.data
+        })
+    }
+}
+
+
 
 // Payments
 #[derive(Debug, Serialize)]
@@ -97,31 +253,43 @@ pub struct BkashPaymentsRequest {
     mode: String,
     payer_reference: String,
     callback_url: String,
+    agreement_id: String,
     amount: StringMinorUnit,
     currency: String,
     intent: String,
     merchant_invoice_number: String,
+    merchant_association_info: Option<String>,
 }
 
 impl TryFrom<&BkashRouterData<&PaymentsAuthorizeRouterData>> for BkashPaymentsRequest {
     type Error = error_stack::Report<errors::ConnectorError>;
     fn try_from(item: &BkashRouterData<&PaymentsAuthorizeRouterData>) -> Result<Self, Self::Error> {
-        let intent = if item.router_data.request.is_auto_capture()? {
-            "sale".to_string()
-        } else {
-            "authorization".to_string()
-        };
-
-        let callback_url = item.router_data.request.get_router_return_url()?;
-
+        let mandate_data = item
+            .router_data
+            .request
+            .mandate_data
+            .as_ref()
+            .and_then(|md| md.connector_mandate_id())
+            .ok_or(errors::ConnectorError::MissingRequiredField {
+                field_name: "mandate_data.connector_mandate_id",
+            })?;
         Ok(Self {
-            mode: "0011".to_string(),
-            payer_reference: "00".to_string(),
-            callback_url,
+            mode: "0001".to_string(),
+            payer_reference: item
+                .router_data
+                .request
+                .get_payer_reference()
+                .ok_or(errors::ConnectorError::MissingRequiredField {
+                    field_name: "payer_reference",
+                })?
+                .to_string(),
+            callback_url: item.router_data.request.get_router_return_url()?,
+            agreement_id: mandate_data,
             amount: item.amount.clone(),
             currency: "BDT".to_string(),
-            intent,
+            intent: "sale".to_string(),
             merchant_invoice_number: item.router_data.connector_request_reference_id.clone(),
+            merchant_association_info: item.router_data.request.get_merchant_association_info(),
         })
     }
 }
@@ -149,8 +317,20 @@ impl From<BkashPaymentStatus> for common_enums::AttemptStatus {
 #[serde(rename_all = "camelCase")]
 pub struct BkashPaymentsResponse {
     payment_id: String,
+    agreement_id: String,
+    payment_create_time: String,
     transaction_status: BkashPaymentStatus,
+    amount: String,
+    currency: String,
+    intent: String,
+    merchant_invoice_number: String,
     bkash_url: String,
+    callback_url: String,
+    success_callback_url: String,
+    failure_callback_url: String,
+    cancelled_callback_url: String,
+    status_code: String,
+    status_message: String,
 }
 
 impl<F, T> TryFrom<ResponseRouterData<F, BkashPaymentsResponse, T, PaymentsResponseData>>
@@ -171,7 +351,10 @@ impl<F, T> TryFrom<ResponseRouterData<F, BkashPaymentsResponse, T, PaymentsRespo
             response: Ok(PaymentsResponseData::TransactionResponse {
                 resource_id: ResponseId::ConnectorTransactionId(item.response.payment_id.clone()),
                 redirection_data: Box::new(redirection_data),
-                mandate_reference: Box::new(None),
+                mandate_reference: Box::new(Some(api_models::payments::MandateReference {
+                    connector_mandate_id: Some(item.response.agreement_id.clone()),
+                    payment_method_id: None,
+                })),
                 connector_metadata: None,
                 network_txn_id: None,
                 connector_response_reference_id: Some(item.response.payment_id),
