@@ -128,6 +128,7 @@ impl IntoDirValue for (global_enums::PaymentMethodType, global_enums::PaymentMet
             global_enums::PaymentMethodType::Vipps => Ok(dirval!(WalletType = Vipps)),
             global_enums::PaymentMethodType::VietQr => Ok(dirval!(RealTimePaymentType = VietQr)),
             global_enums::PaymentMethodType::Momo => Ok(dirval!(WalletType = Momo)),
+            global_enums::PaymentMethodType::Bkash => Ok(dirval!(MobilePaymentType = Bkash)),
             global_enums::PaymentMethodType::Alma => Ok(dirval!(PayLaterType = Alma)),
             global_enums::PaymentMethodType::Dana => Ok(dirval!(WalletType = Dana)),
             global_enums::PaymentMethodType::OnlineBankingFpx => {

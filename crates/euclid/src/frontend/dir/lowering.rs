@@ -161,6 +161,7 @@ impl From<enums::MobilePaymentType> for global_enums::PaymentMethodType {
     fn from(value: enums::MobilePaymentType) -> Self {
         match value {
             enums::MobilePaymentType::DirectCarrierBilling => Self::DirectCarrierBilling,
+            enums::MobilePaymentType::Bkash => Self::Bkash,
         }
     }
 }

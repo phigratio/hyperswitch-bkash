@@ -288,6 +288,7 @@ pub enum CardRedirectType {
 #[strum(serialize_all = "snake_case")]
 pub enum MobilePaymentType {
     DirectCarrierBilling,
+    Bkash,
 }
 
 #[derive(

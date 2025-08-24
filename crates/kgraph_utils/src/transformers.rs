@@ -243,6 +243,7 @@ impl IntoDirValue for (api_enums::PaymentMethodType, api_enums::PaymentMethod) {
             api_enums::PaymentMethodType::Gcash => Ok(dirval!(WalletType = Gcash)),
             api_enums::PaymentMethodType::Vipps => Ok(dirval!(WalletType = Vipps)),
             api_enums::PaymentMethodType::Momo => Ok(dirval!(WalletType = Momo)),
+            api_enums::PaymentMethodType::Bkash => Ok(dirval!(WalletType = Bkash)),
             api_enums::PaymentMethodType::Alma => Ok(dirval!(PayLaterType = Alma)),
             api_enums::PaymentMethodType::Dana => Ok(dirval!(WalletType = Dana)),
             api_enums::PaymentMethodType::OnlineBankingFpx => {

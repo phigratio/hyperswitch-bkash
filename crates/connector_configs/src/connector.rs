@@ -409,6 +409,7 @@ impl ConnectorConfig {
             Connector::Barclaycard => Ok(connector_data.barclaycard),
             Connector::Billwerk => Ok(connector_data.billwerk),
             Connector::Billwerkmuqtadir => Ok(connector_data.billwerkmuqtadir),
+            Connector::Bkash => Ok(connector_data.bkash,
             Connector::Bitpay => Ok(connector_data.bitpay),
             Connector::Bluesnap => Ok(connector_data.bluesnap),
             Connector::Bluecode => Ok(connector_data.bluecode),
