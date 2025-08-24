@@ -168,6 +168,78 @@ impl<F> TryFrom<ResponseRouterData<F, BkashAgreementResponse, AgreementRequestDa
     }
 }
 
+
+// Execute Agreement
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BkashExecuteAgreementRequest {
+    pub payment_id: String,
+}
+
+impl TryFrom<&RouterData<ExecuteAgreement, AgreementRequestData, PaymentsResponseData>>
+    for BkashExecuteAgreementRequest
+{
+    type Error = error_stack::Report<errors::ConnectorError>;
+    fn try_from(
+        item: &RouterData<ExecuteAgreement, AgreementRequestData, PaymentsResponseData>,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            payment_id: item
+                .request
+                .payment_id
+                .clone()
+                .ok_or(errors::ConnectorError::MissingRequiredField {
+                    field_name: "payment_id",
+                })?,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BkashExecuteAgreementResponse {
+    pub payment_id: String,
+    pub agreement_id: String,
+    pub customer_msisdn: String,
+    pub payer_reference: String,
+    pub agreement_execute_time: String,
+    pub agreement_status: String,
+    pub status_code: String,
+    pub status_message: String,
+}
+
+impl<F> TryFrom<ResponseRouterData<F, BkashExecuteAgreementResponse, AgreementRequestData, PaymentsResponseData>>
+    for RouterData<F, AgreementRequestData, PaymentsResponseData>
+{
+    type Error = error_stack::Report<errors::ConnectorError>;
+    fn try_from(
+        item: ResponseRouterData<F, BkashExecuteAgreementResponse, AgreementRequestData, PaymentsResponseData>,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            status: match item.response.agreement_status.as_str() {
+                "Completed" => common_enums::AttemptStatus::Charged,
+                "Failed" => common_enums::AttemptStatus::Failure,
+                "Cancelled" => common_enums::AttemptStatus::Voided,
+                _ => common_enums::AttemptStatus::Pending,
+            },
+            response: Ok(PaymentsResponseData::TransactionResponse {
+                resource_id: ResponseId::ConnectorTransactionId(item.response.payment_id.clone()),
+                redirection_data: Box::new(None),
+                mandate_reference: Box::new(Some(api_models::payments::MandateReference {
+                    connector_mandate_id: Some(item.response.agreement_id.clone()),
+                    payment_method_id: None,
+                })),
+                connector_metadata: None,
+                network_txn_id: None,
+                connector_response_reference_id: Some(item.response.payment_id),
+                incremental_authorization_allowed: None,
+                charges: None,
+            }),
+            ..item.data
+        })
+    }
+}
+
 // Payments
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
