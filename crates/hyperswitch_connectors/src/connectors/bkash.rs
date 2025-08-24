@@ -204,6 +204,7 @@ impl ConnectorValidation for Bkash {
     }
 }
 
+// Previous lines
 impl ConnectorIntegration<Session, PaymentsSessionData, PaymentsResponseData> for Bkash {
     // TODO: implement sessions flow
 }
@@ -214,7 +215,7 @@ impl ConnectorIntegration<AccessTokenAuth, AccessTokenRequestData, AccessToken> 
         _req: &RouterData<AccessTokenAuth, AccessTokenRequestData, AccessToken>,
         connectors: &Connectors,
     ) -> CustomResult<String, errors::ConnectorError> {
-        Ok(format!("{}token/grant", self.base_url(connectors)))
+        Ok(format!("{}checkout/token/grant", self.base_url(connectors)))
     }
 
     fn get_headers(
@@ -228,7 +229,8 @@ impl ConnectorIntegration<AccessTokenAuth, AccessTokenRequestData, AccessToken> 
             )
             .change_context(errors::ConnectorError::FailedToObtainAuthType)?;
         Ok(vec![
-            ("Content-Type".to_string(), "application/json".into()),
+            ("Content-Type".to_string(), "application/json".to_string().into()),
+            ("Accept".to_string(), "application/json".to_string().into()),
             ("username".to_string(), auth.username.expose().into_masked()),
             ("password".to_string(), auth.password.expose().into_masked()),
         ])
@@ -250,7 +252,7 @@ impl ConnectorIntegration<AccessTokenAuth, AccessTokenRequestData, AccessToken> 
         };
         Ok(RequestContent::Json(Box::new(connector_req)))
     }
-
+    // Following lines
     fn build_request(
         &self,
         req: &RouterData<AccessTokenAuth, AccessTokenRequestData, AccessToken>,

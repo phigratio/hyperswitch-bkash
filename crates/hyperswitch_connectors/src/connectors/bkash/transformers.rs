@@ -66,7 +66,9 @@ pub struct BkashAccessTokenRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BkashAccessTokenResponse {
     pub id_token: Secret<String>,
-    pub expires: i64,
+    pub expires_in: i64,
+    pub refresh_token: Secret<String>,
+    pub token_type: String,
 }
 
 impl<F, T> TryFrom<ResponseRouterData<F, BkashAccessTokenResponse, T, AccessToken>>
@@ -79,7 +81,7 @@ impl<F, T> TryFrom<ResponseRouterData<F, BkashAccessTokenResponse, T, AccessToke
         Ok(Self {
             response: Ok(AccessToken {
                 token: item.response.id_token,
-                expires: item.response.expires,
+                expires: item.response.expires_in,
             }),
             ..item.data
         })
