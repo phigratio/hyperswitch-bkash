@@ -88,6 +88,86 @@ impl<F, T> TryFrom<ResponseRouterData<F, BkashAccessTokenResponse, T, AccessToke
     }
 }
 
+// Agreement Creation
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BkashAgreementRequest {
+    pub mode: String,
+    pub payer_reference: String,
+    pub callback_url: String,
+}
+
+impl TryFrom<&RouterData<CreateAgreement, AgreementRequestData, PaymentsResponseData>>
+    for BkashAgreementRequest
+{
+    type Error = error_stack::Report<errors::ConnectorError>;
+    fn try_from(
+        item: &RouterData<CreateAgreement, AgreementRequestData, PaymentsResponseData>,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            mode: "0000".to_string(),
+            payer_reference: item.request.payer_reference.clone().ok_or(
+                errors::ConnectorError::MissingRequiredField {
+                    field_name: "payer_reference",
+                },
+            )?,
+            callback_url: item.request.get_router_return_url()?,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BkashAgreementResponse {
+    pub payment_id: String,
+    pub bkash_url: String,
+    pub callback_url: String,
+    pub success_callback_url: String,
+    pub failure_callback_url: String,
+    pub cancelled_callback_url: String,
+    pub payer_reference: String,
+    pub agreement_status: String,
+    pub agreement_create_time: String,
+    pub status_code: String,
+    pub status_message: String,
+}
+
+impl<F> TryFrom<ResponseRouterData<F, BkashAgreementResponse, AgreementRequestData, PaymentsResponseData>>
+    for RouterData<F, AgreementRequestData, PaymentsResponseData>
+{
+    type Error = error_stack::Report<errors::ConnectorError>;
+    fn try_from(
+        item: ResponseRouterData<F, BkashAgreementResponse, AgreementRequestData, PaymentsResponseData>,
+    ) -> Result<Self, Self::Error> {
+        let redirection_data = Some(RedirectForm::Form {
+            endpoint: item.response.bkash_url.clone(),
+            method: Method::Get,
+            form_fields: std::collections::HashMap::new(),
+        });
+
+        Ok(Self {
+            status: match item.response.agreement_status.as_str() {
+                "Initiated" => common_enums::AttemptStatus::AuthenticationPending,
+                "Completed" => common_enums::AttemptStatus::Charged,
+                "Failed" => common_enums::AttemptStatus::Failure,
+                "Cancelled" => common_enums::AttemptStatus::Voided,
+                _ => common_enums::AttemptStatus::Pending,
+            },
+            response: Ok(PaymentsResponseData::TransactionResponse {
+                resource_id: ResponseId::ConnectorTransactionId(item.response.payment_id.clone()),
+                redirection_data: Box::new(redirection_data),
+                mandate_reference: Box::new(None),
+                connector_metadata: None,
+                network_txn_id: None,
+                connector_response_reference_id: Some(item.response.payment_id),
+                incremental_authorization_allowed: None,
+                charges: None,
+            }),
+            ..item.data
+        })
+    }
+}
+
 // Payments
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -299,6 +299,105 @@ impl ConnectorIntegration<AccessTokenAuth, AccessTokenRequestData, AccessToken> 
     }
 }
 
+impl ConnectorIntegration<CreateAgreement, AgreementRequestData, PaymentsResponseData> for Bkash {
+    fn get_url(
+        &self,
+        _req: &RouterData<CreateAgreement, AgreementRequestData, PaymentsResponseData>,
+        connectors: &Connectors,
+    ) -> CustomResult<String, errors::ConnectorError> {
+        Ok(format!("{}tokenized/checkout/create", self.base_url(connectors)))
+    }
+
+    fn get_headers(
+        &self,
+        req: &RouterData<CreateAgreement, AgreementRequestData, PaymentsResponseData>,
+        connectors: &Connectors,
+    ) -> CustomResult<Vec<(String, masking::Maskable<String>)>, errors::ConnectorError> {
+        let auth: bkash::BkashAuthType =
+            <&ConnectorAuthType as TryInto<bkash::BkashAuthType>>::try_into(
+                &req.connector_auth_type,
+            )
+            .change_context(errors::ConnectorError::FailedToObtainAuthType)?;
+        let token = req
+            .access_token
+            .clone()
+            .ok_or(errors::ConnectorError::FailedToObtainAuthType)?;
+        Ok(vec![
+            (
+                headers::CONTENT_TYPE.to_string(),
+                "application/json".to_string().into(),
+            ),
+            (
+                headers::ACCEPT.to_string(),
+                "application/json".to_string().into(),
+            ),
+            (
+                headers::AUTHORIZATION.to_string(),
+                token.token.expose().into_masked(),
+            ),
+            (
+                "X-App-Key".to_string(),
+                auth.app_key.clone().expose().into_masked(),
+            ),
+        ])
+    }
+
+    fn get_request_body(
+        &self,
+        req: &RouterData<CreateAgreement, AgreementRequestData, PaymentsResponseData>,
+        _connectors: &Connectors,
+    ) -> CustomResult<RequestContent, errors::ConnectorError> {
+        let connector_req = bkash::BkashAgreementRequest::try_from(req)?;
+        Ok(RequestContent::Json(Box::new(connector_req)))
+    }
+
+    fn build_request(
+        &self,
+        req: &RouterData<CreateAgreement, AgreementRequestData, PaymentsResponseData>,
+        connectors: &Connectors,
+    ) -> CustomResult<Option<Request>, errors::ConnectorError> {
+        Ok(Some(
+            RequestBuilder::new()
+                .method(Method::Post)
+                .url(&self.get_url(req, connectors)?)
+                .attach_default_headers()
+                .headers(self.get_headers(req, connectors)?)
+                .set_body(self.get_request_body(req, connectors)?)
+                .build(),
+        ))
+    }
+
+    fn handle_response(
+        &self,
+        data: &RouterData<CreateAgreement, AgreementRequestData, PaymentsResponseData>,
+        event_builder: Option<&mut ConnectorEvent>,
+        res: Response,
+    ) -> CustomResult<
+        RouterData<CreateAgreement, AgreementRequestData, PaymentsResponseData>,
+        errors::ConnectorError,
+    > {
+        let response: bkash::BkashAgreementResponse = res
+            .response
+            .parse_struct("BkashAgreementResponse")
+            .change_context(errors::ConnectorError::ResponseDeserializationFailed)?;
+        event_builder.map(|i| i.set_response_body(&response));
+        router_env::logger::info!(connector_response=?response);
+        RouterData::try_from(ResponseRouterData {
+            response,
+            data: data.clone(),
+            http_code: res.status_code,
+        })
+    }
+
+    fn get_error_response(
+        &self,
+        res: Response,
+        event_builder: Option<&mut ConnectorEvent>,
+    ) -> CustomResult<ErrorResponse, errors::ConnectorError> {
+        self.build_error_response(res, event_builder)
+    }
+}
+
 impl ConnectorIntegration<SetupMandate, SetupMandateRequestData, PaymentsResponseData> for Bkash {
     // TODO: implement mandate setup
 }
